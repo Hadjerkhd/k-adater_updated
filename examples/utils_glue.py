@@ -183,46 +183,50 @@ relations = ['per:siblings', 'per:parents', 'org:member_of', 'per:origin', 'per:
              'per:stateorprovinces_of_residence', 'org:country_of_headquarters', 'per:other_family',
              'per:stateorprovince_of_birth',
              'per:country_of_death', 'per:charges', 'org:city_of_headquarters', 'per:spouse']
+relations =  ['UNCLEAR','CAPITALISTIC','CLIENT','COMPETITOR','PARTNER','TRIAL']
 
+import pandas as pd
+import re
 
 class TACREDProcessor(DataProcessor):
     def get_train_examples(self, data_dir, dataset_type, negative_sample):
         """See base class."""
-        return self._create_examples(
-            self._read_json(os.path.join(data_dir, "{}.json".format(dataset_type))), dataset_type, negative_sample)
+        return self._create_examples(pd.read_csv(data_dir+dataset_type+"_EN_bert_processed_org.tsv",sep="\t"), dataset_type, negative_sample)
 
     def get_dev_examples(self, data_dir, dataset_type, negative_sample):
         """See base class."""
-        return self._create_examples(
-            self._read_json(os.path.join(data_dir, "{}.json".format(dataset_type))), dataset_type, negative_sample)
+        return self._create_examples(pd.read_csv(data_dir+dataset_type+"_EN_bert_processed_org.tsv",sep="\t"),dataset_type, negative_sample)
 
     def get_labels(self):
         """See base class."""
         # return ["0", "1"]
         return relations
 
-    def _create_examples(self, lines, dataset_type, negative_sample):
+    def _create_examples(self, df, dataset_type, negative_sample):
         """Creates examples for the training and dev sets."""
         examples = []
-        no_relation_number = negative_sample
-        for (i, line) in enumerate(lines):
+        for i, item in df.iterrows():
             guid = i
-            # text_a: tokenized words
-            text_a = line['token']
-            # text_b: other information
-            text_b = (line['subj_start'], line['subj_end'], line['obj_start'], line['obj_end'])
-            label = line['relation']
-            if label == 'no_relation' and dataset_type == 'train':
-                no_relation_number -= 1
-                if no_relation_number > 0:
-                    examples.append(
-                        InputExample(guid=guid, text_a=text_a, text_b=text_b, label=label))
-                else:
-                    continue
-            else:
-                examples.append(
-                    InputExample(guid=guid, text_a=text_a, text_b=text_b, label=label))
+            tokens = item["sentence"]
 
+            sub = re.sub(r"\[E11\]",'',tokens) 
+            sub = re.sub(r"\[E12\]",'',sub) 
+            ob = re.sub(r"\[E21\]",'',tokens) 
+            ob = re.sub(r"\[E22\]",'',ob)
+
+           
+            text_b = ob.index('[E11]'), ob.index('[E12]') -5,sub.index('[E21]'), sub.index('[E22]') -5
+
+            tokens = re.sub(r"\[E11\]",'',tokens) 
+            tokens = re.sub(r"\[E12\]",'',tokens) 
+            tokens = re.sub(r"\[E21\]",'',tokens) 
+            tokens = re.sub(r"\[E22\]",'',tokens)
+
+            text = tokens
+            text_a = text.rstrip()
+            label = item['relation']
+            examples.append(
+                        InputExample(guid=guid, text_a=text_a, text_b=text_b, label=label))
         return examples
 
 
@@ -314,6 +318,7 @@ def convert_examples_to_features_entity_typing(examples, label_list, max_seq_len
         tokens_end_last = tokenizer.tokenize(sentence[end:])
         tokens = [cls_token] + tokens_0_start + tokenizer.tokenize('@') + tokens_start_end + tokenizer.tokenize(
             '@') + tokens_end_last + [sep_token]
+            
         start = 1 + len(tokens_0_start)
         end = 1 + len(tokens_0_start) + 1 + len(tokens_start_end)
 
@@ -424,7 +429,7 @@ def convert_examples_to_features_tacred(examples, label_list, max_seq_length,
         tokens = ['<s>'] + tokens + ['</s>']
         subj_special_start += 1
         obj_special_start += 1
-        relation = label_map[example.label]
+        relation = example.label
 
         segment_ids = [sequence_a_segment_id] * len(tokens)
         input_ids = tokenizer.convert_tokens_to_ids(tokens)
@@ -447,9 +452,9 @@ def convert_examples_to_features_tacred(examples, label_list, max_seq_length,
         assert len(segment_ids) == max_seq_length
 
         if output_mode == "classification":
-            label_id = label_map[example.label]
+            label_id = example.label
         elif output_mode == "regression":
-            label_id = float(label_map[example.label])
+            label_id = float(example.label)
         else:
             raise KeyError(output_mode)
 
@@ -462,12 +467,18 @@ def convert_examples_to_features_tacred(examples, label_list, max_seq_length,
             logger.info("input_mask: %s" % " ".join([str(x) for x in input_mask]))
             logger.info("segment_ids: %s" % " ".join([str(x) for x in segment_ids]))
             logger.info("label: {}".format(label_id))
+  
 
         if subj_special_start > max_seq_length:
             subj_special_start = max_seq_length - 10
         if obj_special_start > max_seq_length:
             obj_special_start = max_seq_length - 10
-
+        
+        if subj_special_start == max_seq_length:        
+            subj_special_start = max_seq_length - 1
+        if obj_special_start == max_seq_length:        
+            obj_special_start = max_seq_length - 1
+        
         subj_special_start_id = np.zeros(max_seq_length)
         obj_special_start_id = np.zeros(max_seq_length)
         subj_special_start_id[subj_special_start] = 1
