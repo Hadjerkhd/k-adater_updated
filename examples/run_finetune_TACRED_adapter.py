@@ -475,7 +475,7 @@ from pytorch_transformers.modeling_bert import BertEncoder
 class PretrainedModel(nn.Module):
     def __init__(self, args):
         super(PretrainedModel, self).__init__()
-        self.model = RobertaModel.from_pretrained("roberta-base", output_hidden_states=True)
+        self.model = RobertaModel.from_pretrained("roberta-large", output_hidden_states=True)
         self.config = self.model.config
         self.config.freeze_adapter = args.freeze_adapter
         if args.freeze_bert:
@@ -603,7 +603,8 @@ class AdapterModel(nn.Module):
         # pooler_output = outputs[1]
         hidden_states = outputs[2]
         num = len(hidden_states)
-        hidden_states_last = torch.zeros(sequence_output.size()).to('cuda')
+        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        hidden_states_last = torch.zeros(sequence_output.size()).to(device)
 
         adapter_hidden_states = []
         adapter_hidden_states_count = 0
@@ -910,7 +911,7 @@ def main():
     # tokenizer = tokenizer_class.from_pretrained(args.tokenizer_name if args.tokenizer_name else args.model_name_or_path, do_lower_case=args.do_lower_case)
     # model = model_class.from_pretrained(args.model_name_or_path, from_tf=bool('.ckpt' in args.model_name_or_path), config=config)
 
-    tokenizer = RobertaTokenizer.from_pretrained('roberta-base')
+    tokenizer = RobertaTokenizer.from_pretrained('roberta-large')
     pretrained_model = PretrainedModel(args)
     if args.meta_fac_adaptermodel:
         fac_adapter = AdapterModel(args, pretrained_model.config)
