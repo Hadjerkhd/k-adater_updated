@@ -10,6 +10,7 @@ CUDA_VISIBLE_DEVICES=$GPU python examples/run_finetune_TACRED_adapter.py \
     --config_name roberta-large \
     --do_train  \
     --do_eval   \
+    --no_cuda  \
     --task_name=$task     \
     --data_dir=/home/ubuntu/data/  \
     --output_dir=./proc_data  \
@@ -19,7 +20,7 @@ CUDA_VISIBLE_DEVICES=$GPU python examples/run_finetune_TACRED_adapter.py \
     --per_gpu_train_batch_size=8   \
     --learning_rate=5e-6 \
     --gradient_accumulation_steps=1 \
-    --max_steps=12000  \
+    --num_train_epochs=5     \
     --model_name=roberta-large  \
     --overwrite_output_dir   \
     --overwrite_cache \
